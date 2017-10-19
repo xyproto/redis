@@ -54,6 +54,8 @@ int keyspaceEventsStringToFlags(char *classes) {
         case 'e': flags |= NOTIFY_EVICTED; break;
         case 'K': flags |= NOTIFY_KEYSPACE; break;
         case 'E': flags |= NOTIFY_KEYEVENT; break;
+        case 'H': flags |= NOTIFY_HASHSPACE; break;
+        case 'f': flags |= NOTIFY_HASHFIELD; break;
         default: return -1;
         }
     }
@@ -79,9 +81,11 @@ sds keyspaceEventsFlagsToString(int flags) {
         if (flags & NOTIFY_ZSET) res = sdscatlen(res,"z",1);
         if (flags & NOTIFY_EXPIRED) res = sdscatlen(res,"x",1);
         if (flags & NOTIFY_EVICTED) res = sdscatlen(res,"e",1);
+        if (flags & NOTIFY_HASHFIELD) res = sdscatlen(res,"f",1);
     }
     if (flags & NOTIFY_KEYSPACE) res = sdscatlen(res,"K",1);
     if (flags & NOTIFY_KEYEVENT) res = sdscatlen(res,"E",1);
+    if (flags & NOTIFY_HASHSPACE) res = sdscatlen(res,"H",1);
     return res;
 }
 
@@ -118,6 +122,51 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
     /* __keyevente@<db>__:<event> <key> notifications. */
     if (server.notify_keyspace_events & NOTIFY_KEYEVENT) {
         chan = sdsnewlen("__keyevent@",11);
+        if (len == -1) len = ll2string(buf,sizeof(buf),dbid);
+        chan = sdscatlen(chan, buf, len);
+        chan = sdscatlen(chan, "__:", 3);
+        chan = sdscatsds(chan, eventobj->ptr);
+        chanobj = createObject(OBJ_STRING, chan);
+        pubsubPublishMessage(chanobj, key);
+        decrRefCount(chanobj);
+    }
+    decrRefCount(eventobj);
+}
+
+/* The API provided to the rest of the Redis core is a simple function:
+ *
+ * notifyHashspaceEvent(char *event, robj *key, robj *field, int dbid);
+ *
+ * 'event' is a C string representing the event name.
+ * 'key' is a Redis object representing the hash key name.
+ * 'field' is a Redis object representing the hash field name.
+ * 'dbid' is the database ID where the key lives.  */
+void notifyHashspaceEvent(int type, char *event, robj *key, robj *field, int dbid) {
+    sds chan;
+    robj *chanobj, *eventobj;
+    int len = -1;
+    char buf[24];
+
+    /* If notifications for this class of events are off, return ASAP. */
+    if (!(server.notify_hashspace_events & type)) return;
+
+    eventobj = createStringObject(event,strlen(event));
+
+    /* __keyspace@<db>__:<key> <event> notifications. */
+    if (server.notify_hashspace_events & NOTIFY_HASHSPACE) {
+        chan = sdsnewlen("__hashspace@",11);
+        len = ll2string(buf,sizeof(buf),dbid);
+        chan = sdscatlen(chan, buf, len);
+        chan = sdscatlen(chan, "__:", 3);
+        chan = sdscatsds(chan, key->ptr);
+        chanobj = createObject(OBJ_STRING, chan);
+        pubsubPublishMessage(chanobj, eventobj);
+        decrRefCount(chanobj);
+    }
+
+    /* __keyevente@<db>__:<event> <key> notifications. */
+    if (server.notify_hashspace_events & NOTIFY_HASHFIELD) {
+        chan = sdsnewlen("__hashfieldevent@",11);
         if (len == -1) len = ll2string(buf,sizeof(buf),dbid);
         chan = sdscatlen(chan, buf, len);
         chan = sdscatlen(chan, "__:", 3);

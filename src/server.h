@@ -424,7 +424,9 @@ typedef long long mstime_t; /* millisecond time type. */
 #define NOTIFY_ZSET (1<<7)        /* z */
 #define NOTIFY_EXPIRED (1<<8)     /* x */
 #define NOTIFY_EVICTED (1<<9)     /* e */
-#define NOTIFY_ALL (NOTIFY_GENERIC | NOTIFY_STRING | NOTIFY_LIST | NOTIFY_SET | NOTIFY_HASH | NOTIFY_ZSET | NOTIFY_EXPIRED | NOTIFY_EVICTED)      /* A */
+#define NOTIFY_HASHSPACE (1<<10)  /* H */
+#define NOTIFY_HASHFIELD (1<<11)  /* f */
+#define NOTIFY_ALL (NOTIFY_GENERIC | NOTIFY_STRING | NOTIFY_LIST | NOTIFY_SET | NOTIFY_HASH | NOTIFY_ZSET | NOTIFY_EXPIRED | NOTIFY_EVICTED | NOTIFY_HASHFIELD)      /* A */
 
 /* Get the first bind addr or NULL */
 #define NET_FIRST_BIND_ADDR (server.bindaddr_count ? server.bindaddr[0] : NULL)
@@ -931,7 +933,7 @@ struct redisServer {
     /* Fast pointers to often looked up command */
     struct redisCommand *delCommand, *multiCommand, *lpushCommand, *lpopCommand,
                         *rpopCommand, *sremCommand, *execCommand, *expireCommand,
-                        *pexpireCommand;
+                        *pexpireCommand, *hexpireCommand;
     /* Fields used only for stats */
     time_t stat_starttime;          /* Server start time */
     long long stat_numcommands;     /* Number of processed commands */
@@ -1148,6 +1150,9 @@ struct redisServer {
     list *pubsub_patterns;  /* A list of pubsub_patterns */
     int notify_keyspace_events; /* Events to propagate via Pub/Sub. This is an
                                    xor of NOTIFY_... flags. */
+    int notify_hashspace_events; /* Events to propagate via Pub/Sub. This is an
+                                   xor of NOTIFY_... flags. */
+
     /* Cluster */
     int cluster_enabled;      /* Is cluster enabled? */
     mstime_t cluster_node_timeout; /* Cluster node timeout. */
@@ -1692,6 +1697,9 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid);
 int keyspaceEventsStringToFlags(char *classes);
 sds keyspaceEventsFlagsToString(int flags);
 
+/* Hashspace events notification */
+void notifyHashspaceEvent(int type, char *event, robj *key, robj *field, int dbid);
+
 /* Configuration */
 void loadServerConfig(char *filename, char *options);
 void appendServerSaveParams(time_t seconds, int changes);
@@ -1890,6 +1898,7 @@ void expireCommand(client *c);
 void expireatCommand(client *c);
 void pexpireCommand(client *c);
 void pexpireatCommand(client *c);
+void hexpireCommand(client *c);
 void getsetCommand(client *c);
 void ttlCommand(client *c);
 void touchCommand(client *c);

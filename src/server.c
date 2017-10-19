@@ -199,6 +199,7 @@ struct redisCommand redisCommandTable[] = {
     {"zrevrank",zrevrankCommand,3,"rF",0,NULL,1,1,1,0,0},
     {"zscan",zscanCommand,-3,"rR",0,NULL,1,1,1,0,0},
     {"hset",hsetCommand,-4,"wmF",0,NULL,1,1,1,0,0},
+    {"hexpire",hexpireCommand,-4,"wF",0,NULL,1,1,1,0,0},
     {"hsetnx",hsetnxCommand,4,"wmF",0,NULL,1,1,1,0,0},
     {"hget",hgetCommand,3,"rF",0,NULL,1,1,1,0,0},
     {"hmset",hsetCommand,-4,"wmF",0,NULL,1,1,1,0,0},
@@ -1407,6 +1408,7 @@ void initServerConfig(void) {
     server.activerehashing = CONFIG_DEFAULT_ACTIVE_REHASHING;
     server.active_defrag_running = 0;
     server.notify_keyspace_events = 0;
+    server.notify_hashspace_events = 0;
     server.maxclients = CONFIG_DEFAULT_MAX_CLIENTS;
     server.bpop_blocked_clients = 0;
     server.maxmemory = CONFIG_DEFAULT_MAXMEMORY;
@@ -1508,6 +1510,7 @@ void initServerConfig(void) {
     server.execCommand = lookupCommandByCString("exec");
     server.expireCommand = lookupCommandByCString("expire");
     server.pexpireCommand = lookupCommandByCString("pexpire");
+    server.hexpireCommand = lookupCommandByCString("hexpire");
 
     /* Slow log */
     server.slowlog_log_slower_than = CONFIG_DEFAULT_SLOWLOG_LOG_SLOWER_THAN;
