@@ -492,9 +492,10 @@ sds catAppendOnlyExpireAtCommand(sds buf, struct redisCommand *cmd, robj *key, r
     {
         when *= 1000;
     }
-    /* Convert into absolute time for EXPIRE, PEXPIRE, SETEX, PSETEX */
+    /* Convert into absolute time for EXPIRE, PEXPIRE, SETEX, PSETEX, HEXPIRE */
     if (cmd->proc == expireCommand || cmd->proc == pexpireCommand ||
-        cmd->proc == setexCommand || cmd->proc == psetexCommand)
+        cmd->proc == setexCommand || cmd->proc == psetexCommand ||
+        cmd->proc == hexpireCommand)
     {
         when += mstime();
     }
@@ -525,7 +526,7 @@ void feedAppendOnlyFile(struct redisCommand *cmd, int dictid, robj **argv, int a
     }
 
     if (cmd->proc == expireCommand || cmd->proc == pexpireCommand ||
-        cmd->proc == expireatCommand) {
+        cmd->proc == expireatCommand || cmd->proc == hexpireCommand) {
         /* Translate EXPIRE/PEXPIRE/EXPIREAT into PEXPIREAT */
         buf = catAppendOnlyExpireAtCommand(buf,cmd,argv[1],argv[2]);
     } else if (cmd->proc == setexCommand || cmd->proc == psetexCommand) {

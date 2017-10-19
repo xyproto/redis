@@ -88,7 +88,7 @@ start_server {tags {"expire"}} {
         list $a $b
     } {somevalue {}}
 
-    test {PEXPIRE/PSETEX/PEXPIREAT can set sub-second expires} {
+    test {PEXPIRE/PSETEX/PEXPIREAT/HEXPIRE can set sub-second expires} {
         # This test is very likely to do a false positive if the
         # server is under pressure, so if it does not work give it a few more
         # chances.
@@ -114,14 +114,22 @@ start_server {tags {"expire"}} {
             after 120
             set f [r get x]
 
+            r hset x f somevalue
+            r hexpire x f 100
+            after 80
+            set g [r hget x f]
+            after 120
+            set h [r hget x f]
+
             if {$a eq {somevalue} && $b eq {} &&
                 $c eq {somevalue} && $d eq {} &&
-                $e eq {somevalue} && $f eq {}} break
+                $e eq {somevalue} && $f eq {} &&
+                $g eq {somevalue} && $h eq {}} break
         }
         list $a $b
     } {somevalue {}}
 
-    test {TTL returns tiem to live in seconds} {
+    test {TTL returns time to live in seconds} {
         r del x
         r setex x 10 somevalue
         set ttl [r ttl x]

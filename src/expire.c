@@ -373,10 +373,11 @@ void flushSlaveKeysWithExpireList(void) {
  * Expires Commands
  *----------------------------------------------------------------------------*/
 
-/* This is the generic command implementation for EXPIRE, PEXPIRE, EXPIREAT
- * and PEXPIREAT. Because the commad second argument may be relative or absolute
- * the "basetime" argument is used to signal what the base time is (either 0
- * for *AT variants of the command, or the current time for relative expires).
+/* This is the generic command implementation for EXPIRE, PEXPIRE, EXPIREAT,
+ * HEXPIRE and PEXPIREAT. Because the commad second argument may be relative
+ * or absolute the "basetime" argument is used to signal what the base time is
+ * (either 0 for *AT variants of the command, or the current time for relative
+ * expires).
  *
  * unit is either UNIT_SECONDS or UNIT_MILLISECONDS, and is only used for
  * the argv[2] parameter. The basetime is always specified in milliseconds. */
@@ -445,6 +446,11 @@ void pexpireCommand(client *c) {
 /* PEXPIREAT key ms_time */
 void pexpireatCommand(client *c) {
     expireGenericCommand(c,0,UNIT_MILLISECONDS);
+}
+
+/* HEXPIRE key milliseconds */
+void pexpireCommand(client *c) {
+    pexpireGenericCommand(c,mstime(),UNIT_MILLISECONDS);
 }
 
 /* Implements TTL and PTTL */
