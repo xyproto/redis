@@ -462,40 +462,55 @@ void hexpireCommand(client *c) {
     if (unit == UNIT_SECONDS) when *= 1000;
     when += basetime;
 
+    printf("[hexpireCommand] key:%s field:%s ms:%lld\n", (char*)key->ptr, (char*)field->ptr, when);
+
     /* No key, return zero. */
     if (lookupKeyWrite(c->db,key) == NULL) {
         addReply(c,shared.czero);
         return;
     }
 
-    // TODO: The rest needs to be rewritten for Hashspace/Hashfield events
-
-    /* EXPIRE with negative TTL, or EXPIREAT with a timestamp into the past
-     * should never be executed as a DEL when load the AOF or in the context
-     * of a slave instance.
+    /* PEXPIRE with negative TTL should never be executed as a HDEL when load the AOF
+     * or in the context of a slave instance.
      *
      * Instead we take the other branch of the IF statement setting an expire
-     * (possibly in the past) and wait for an explicit DEL from the master. */
+     * (possibly in the past) and wait for an explicit HDEL from the master. */
     if (when <= mstime() && !server.loading && !server.masterhost) {
-        robj *aux;
+        printf("[hexpireCommand NOW] key:%s field:%s ms:%lld\n", (char*)key->ptr, (char*)field->ptr, when);
+        robj *o;
 
-        int deleted = server.lazyfree_lazy_expire ? dbAsyncDelete(c->db,key) :
-                                                    dbSyncDelete(c->db,key);
-        serverAssertWithInfo(c,key,deleted);
-        server.dirty++;
+        int j, deleted = 0, keyremoved = 0;
 
-        /* Replicate/AOF this as an explicit DEL or UNLINK. */
-        aux = server.lazyfree_lazy_expire ? shared.unlink : shared.del;
-        rewriteClientCommandVector(c,2,aux,key);
-        signalModifiedKey(c->db,key);
-        notifyHashspaceEvent(NOTIFY_GENERIC,"del",key,field,c->db->id);
-        addReply(c, shared.cone);
+        if ((o = lookupKeyWriteOrReply(c,c->argv[1],shared.czero)) == NULL ||
+            checkType(c,o,OBJ_HASH)) return;
+
+        for (j = 2; j < c->argc; j++) {
+            if (hashTypeDelete(o,c->argv[j]->ptr)) {
+                deleted++;
+                // If several hash fields are removed, trigger a hdel HASHFIELD notification for each one
+                notifyHashspaceEvent(NOTIFY_HASHFIELD,"hdel",c->argv[1],c->argv[j],c->db->id);
+                if (hashTypeLength(o) == 0) {
+                    dbDelete(c->db,c->argv[1]);
+                    keyremoved = 1;
+                    break;
+                }
+            }
+        }
+        if (deleted) {
+            signalModifiedKey(c->db,c->argv[1]);
+            notifyKeyspaceEvent(NOTIFY_HASH,"hdel",c->argv[1],c->db->id);
+            if (keyremoved)
+                notifyKeyspaceEvent(NOTIFY_GENERIC,"del",c->argv[1], c->db->id);
+            server.dirty += deleted;
+        }
+        addReplyLongLong(c,deleted);
         return;
     } else {
-        setExpire(c,c->db,key,when);
+        printf("[hexpireCommand LATER] key:%s field:%s ms:%lld\n", (char*)key->ptr, (char*)field->ptr, when);
+        setExpireHashField(c,c->db,key,field,when);
         addReply(c,shared.cone);
         signalModifiedKey(c->db,key);
-        notifyHashspaceEvent(NOTIFY_GENERIC,"expire",key,field,c->db->id);
+        notifyHashspaceEvent(NOTIFY_GENERIC,"hexpire",key,field,c->db->id);
         server.dirty++;
         return;
     }

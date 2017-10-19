@@ -523,6 +523,7 @@ void hsetnxCommand(client *c) {
         addReply(c, shared.cone);
         signalModifiedKey(c->db,c->argv[1]);
         notifyKeyspaceEvent(NOTIFY_HASH,"hset",c->argv[1],c->db->id);
+        notifyHashspaceEvent(NOTIFY_HASHFIELD,"hset",c->argv[1],c->argv[2],c->db->id);
         server.dirty++;
     }
 }
@@ -553,6 +554,7 @@ void hsetCommand(client *c) {
     }
     signalModifiedKey(c->db,c->argv[1]);
     notifyKeyspaceEvent(NOTIFY_HASH,"hset",c->argv[1],c->db->id);
+    notifyHashspaceEvent(NOTIFY_HASHFIELD,"hset",c->argv[1],c->argv[2],c->db->id);
     server.dirty++;
 }
 
@@ -709,6 +711,8 @@ void hdelCommand(client *c) {
     for (j = 2; j < c->argc; j++) {
         if (hashTypeDelete(o,c->argv[j]->ptr)) {
             deleted++;
+            // If several hash fields are removed, trigger a hdel HASHFIELD notification for each one
+            notifyHashspaceEvent(NOTIFY_HASHFIELD,"hdel",c->argv[1],c->argv[j],c->db->id);
             if (hashTypeLength(o) == 0) {
                 dbDelete(c->db,c->argv[1]);
                 keyremoved = 1;

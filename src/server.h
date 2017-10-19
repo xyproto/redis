@@ -1150,8 +1150,6 @@ struct redisServer {
     list *pubsub_patterns;  /* A list of pubsub_patterns */
     int notify_keyspace_events; /* Events to propagate via Pub/Sub. This is an
                                    xor of NOTIFY_... flags. */
-    int notify_hashspace_events; /* Events to propagate via Pub/Sub. This is an
-                                   xor of NOTIFY_... flags. */
 
     /* Cluster */
     int cluster_enabled;      /* Is cluster enabled? */
@@ -1714,6 +1712,7 @@ void propagateExpire(redisDb *db, robj *key, int lazy);
 int expireIfNeeded(redisDb *db, robj *key);
 long long getExpire(redisDb *db, robj *key);
 void setExpire(client *c, redisDb *db, robj *key, long long when);
+void setExpireHashField(client *c, redisDb *db, robj *key, robj *field, long long when);
 robj *lookupKey(redisDb *db, robj *key, int flags);
 robj *lookupKeyRead(redisDb *db, robj *key);
 robj *lookupKeyWrite(redisDb *db, robj *key);
@@ -1739,6 +1738,7 @@ long long emptyDb(int dbnum, int flags, void(callback)(void*));
 
 int selectDb(client *c, int id);
 void signalModifiedKey(redisDb *db, robj *key);
+void signalModifiedHashField(redisDb *db, robj *key, robj *field);
 void signalFlushedDb(int dbid);
 unsigned int getKeysInSlot(unsigned int hashslot, robj **keys, unsigned int count);
 unsigned int countKeysInSlot(unsigned int hashslot);

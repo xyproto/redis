@@ -700,7 +700,7 @@ void loadServerConfigFromString(char *config) {
             int flags = keyspaceEventsStringToFlags(argv[1]);
 
             if (flags == -1) {
-                err = "Invalid event class character. Use 'g$lshzxeA'.";
+                err = "Invalid event class character. Use 'g$lshzxeAf'.";
                 goto loaderr;
             }
             server.notify_keyspace_events = flags;
